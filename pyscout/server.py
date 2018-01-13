@@ -1,60 +1,42 @@
-import visdom
-import numpy as np
-import time
-from threading import Timer
+import zmq
+import os
+from threading import Thread
+from timekeeper_plot import timekeeper_plot
 
 
 
+class pyscout_server():
+    def __init__(self, zmq_port=2000, visdom_port = 4065):
+        context = zmq.Context()
+        self.socket = context.socket(zmq.SUB)
+        self.addr = 'tcp://*:%d'%zmq_port
+        self.socket.bind(self.addr)
+        self.socket.setsockopt(zmq.SUBSCRIBE, '')
+        self.zmq_port = zmq_port
+        self.visdom_port = visdom_port
+        self.plots = {}
 
-class timekeeper_plot():
-    def __init__(self, name='', refresh=0.1, period=1):
-        self.name = name
-        self.refresh = refresh
-        self.period = period
-        self.vals_lifo = []
-        self.tt_lifo = []
-        self.vis = visdom.Visdom()
-        self.is_running = False
-        self.start_time = time.time()
-        self.win = None
-        self.start()
+    def run_main_loop(self):
+        self.zmq_thread = Thread(target=self.main_loop)
+        self.zmq_thread.start()
+        print('Pyscout server is running with zmq port set on %s' % self.addr)
 
-    def feed(self, val):
-        self.vals_lifo.append(val)
-        self.tt_lifo.append(time.time())
-        while time.time()-self.tt_lifo[0] > self.period:
-            self.vals_lifo.pop(0)
-            self.tt_lifo.pop(0)
 
-    def plot(self):
-        print(self.vals_lifo[-1])
-        xx = np.array(self.tt_lifo)-self.start_time
-        yy = np.array(self.vals_lifo)
-        if self.win is None:
-            opts = {'title': self.name, 'markersize':1}
-            self.win = self.vis.line(X=xx, Y=yy, opts=opts)
-        else:
-            self.vis.updateTrace(X=xx, Y=yy, win=self.win, append=False)
+    def main_loop(self):
+        while True:
+            name, val = self.socket.recv_pyobj()
+            if name not in self.plots:
+                new_plot = timekeeper_plot(name, visdom_port=self.visdom_port)
+                self.plots.update({name : new_plot})
+            self.plots[name].feed(val)
 
-    def _run(self):
-        self.is_running = False
-        self.start()
-        self.plot()
+    def wait(self):
+        self.zmq_thread.join()
 
-    def start(self):
-        if not self.is_running:
-            self._timer = Timer(self.refresh, self._run)
-            self._timer.start()
-            self.is_running = True
 
-    def stop(self):
-        self._timer.cancel()
-        self.is_running = False
 
 
 
 if __name__ == '__main__':
-    mooing = timekeeper_plot('test', 0.03, 1)
-    for ii in range(1000):
-        mooing.feed(np.random.randn())
-        time.sleep(0.03)
+    serv = pyscout_server()
+    serv.run_main_loop()
