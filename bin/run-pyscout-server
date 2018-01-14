@@ -7,5 +7,5 @@ visdom_port = 4065
 
 serv = pyscout_server(visdom_port = visdom_port)
 serv.run_main_loop()
-os.system('python -m visdom.server -port %d' % visdom_port)
+os.system('python -m visdom.server -port %d -logging_level 100' % visdom_port)
 serv.wait()

@@ -18,6 +18,8 @@ class timekeeper_plot():
         self.start_time = time.time()
         self.win = None
         self.start()
+        self.ymax = None
+        self.ymax_alpha = 0.01
 
     def feed(self, val):
         self.vals_lifo.append(val)
@@ -27,14 +29,19 @@ class timekeeper_plot():
             self.tt_lifo.pop(0)
 
     def plot(self):
-        print(self.vals_lifo[-1])
+        #print(self.vals_lifo[-1])
         xx = np.array(self.tt_lifo)-self.start_time
         yy = np.array(self.vals_lifo)
+        if self.ymax is None:
+            self.ymax = yy.max()
+        else:
+            self.ymax = (1-self.ymax_alpha)*self.ymax + self.ymax_alpha*yy.max()
+        opts = {'title': self.name, 'markersize':1, 'ytickmin' : 0, 'ytickmax' : self.ymax}
         if self.win is None:
-            opts = {'title': self.name, 'markersize':1}
             self.win = self.vis.line(X=xx, Y=yy, opts=opts)
         else:
-            self.vis.updateTrace(X=xx, Y=yy, win=self.win, append=False)
+            self.vis.line(X=xx, Y=yy, win=self.win, update='replace', opts=opts)
+        #    self.vis.updateTrace(X=xx, Y=yy, win=self.win, append=False)
 
     def _run(self):
         self.is_running = False

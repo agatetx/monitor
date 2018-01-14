@@ -25,6 +25,7 @@ class pyscout_server():
     def main_loop(self):
         while True:
             name, val = self.socket.recv_pyobj()
+            print(name,val)
             if name not in self.plots:
                 new_plot = timekeeper_plot(name, visdom_port=self.visdom_port)
                 self.plots.update({name : new_plot})
